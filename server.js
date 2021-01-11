@@ -1,9 +1,12 @@
 const express = require("express");
 const morgan = require("morgan");
+const cors = require("cors");
+const helmet = require("helmet");
 require("dotenv").config();
 
 const app = express();
-const PORT = 8000;
+// const PORT = 8000;
+const PORT = process.env.PORT || 8000;
 const validTypes = [
   `Bug`,
   `Dark`,
@@ -26,16 +29,13 @@ const validTypes = [
 ];
 const POKEDEX = require("./pokedex.json");
 
-console.log(POKEDEX.pokemon[0].name);
-
 //Everything gets routed through morgan (middleware)
-app.use(morgan("dev"));
+// process.env.NODE_ENV = "production"
+const morganSetting = process.env.NODE_ENV === "production" ? "tiny" : "dev";
+app.use(morgan("morganSetting"));
+app.use(cors());
+app.use(helmet());
 app.use(validateBearerToken); //will run on every single route
-
-// app.use((req, res, next) => {
-//   // res.send("Hello World");
-//   next();
-// });
 
 //ROUTES
 app.get("/types", validateBearerToken, handleGetTypes);
@@ -44,11 +44,11 @@ app.get("/pokemon", handleGetPokemon);
 //FUNCTIONS
 function validateBearerToken(req, res, next) {
   const authToken = req.get("Authorization");
-  // const bearerToken = req.get("Authorization").split(" ")[1]; removed bc no api input in postman - cant split undefined
+  // const bearerToken = req.get("Authorization").split(" ")[1]; removed
   const apiToken = process.env.API_TOKEN;
 
   if (!authToken || authToken.split(" ")[1] !== apiToken) {
-    return res.status(401).json({ error: "Unauthorized Request" });
+    return res.statusCode(404).json({ error: "Unauthorized Request" });
   }
   next();
 }
@@ -70,6 +70,16 @@ function handleGetPokemon(req, res) {
 
   res.json(response);
 }
+
+app.use(PORT, () => {
+  let response;
+  if (process.env.NODE_ENV === "production") {
+    response = { error: { message: "server error" } };
+  } else {
+    response = { error };
+  }
+  res.status(500).json(response);
+});
 
 app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
